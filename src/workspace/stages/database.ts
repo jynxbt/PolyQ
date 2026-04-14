@@ -4,7 +4,7 @@ import consola from 'consola'
 import type { Stage } from '../stage'
 import { run, runSync } from '../process'
 
-const logger = consola.withTag('helm:database')
+const logger = consola.withTag('polyq:database')
 
 export interface DatabaseStageOptions {
   /** PostgreSQL connection URL */
@@ -124,21 +124,27 @@ export function createDatabaseResetStage(options: DatabaseStageOptions): Stage {
       const url = new URL(options.url)
       const dbName = url.pathname.replace('/', '')
 
+      // Sanitize database name — only allow alphanumeric, underscore, hyphen
+      const safeDbName = dbName.replace(/[^a-zA-Z0-9_-]/g, '')
+      if (safeDbName !== dbName) {
+        throw new Error(`Unsafe database name: "${dbName}". Only alphanumeric, underscore, hyphen allowed.`)
+      }
+
       // Connect to maintenance database
       url.pathname = '/postgres'
       const maintenanceUrl = url.toString()
 
-      logger.info(`Dropping database: ${dbName}`)
+      logger.info(`Dropping database: ${safeDbName}`)
 
-      // Terminate existing connections
+      // Terminate existing connections (identifier quoted to prevent injection)
       runSync(
-        `psql "${maintenanceUrl}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${dbName}' AND pid <> pg_backend_pid()"`,
+        `psql "${maintenanceUrl}" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${safeDbName}' AND pid <> pg_backend_pid()"`,
         { timeout: 10_000 },
       )
 
-      // Drop and recreate
-      runSync(`psql "${maintenanceUrl}" -c "DROP DATABASE IF EXISTS ${dbName}"`, { timeout: 10_000 })
-      runSync(`psql "${maintenanceUrl}" -c "CREATE DATABASE ${dbName}"`, { timeout: 10_000 })
+      // Drop and recreate (using quoted identifiers)
+      runSync(`psql "${maintenanceUrl}" -c 'DROP DATABASE IF EXISTS "${safeDbName}"'`, { timeout: 10_000 })
+      runSync(`psql "${maintenanceUrl}" -c 'CREATE DATABASE "${safeDbName}"'`, { timeout: 10_000 })
 
       logger.success(`Database ${dbName} recreated`)
 
