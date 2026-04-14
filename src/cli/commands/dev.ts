@@ -1,5 +1,7 @@
 import { defineCommand } from 'citty'
 import consola from 'consola'
+import { loadConfig } from '../../config/loader'
+import { buildStages, runStages } from '../../workspace/orchestrator'
 
 export default defineCommand({
   meta: {
@@ -14,23 +16,49 @@ export default defineCommand({
     },
     reset: {
       type: 'boolean',
-      description: 'Full reset before starting',
+      description: 'Full reset before starting (drop DB, restart validator, rebuild)',
       default: false,
     },
     only: {
       type: 'string',
-      description: 'Start only specific stages (comma-separated: validator,docker,deploy)',
+      description: 'Run only specific stages (comma-separated: docker,validator,programs,database)',
     },
   },
   async run({ args }) {
-    consola.info('Starting Solana development environment...')
+    const config = await loadConfig()
 
-    if (args.reset) {
-      consola.info('Performing full reset...')
-      // TODO: Phase 4 — workspace orchestration
+    if (!config.workspace) {
+      consola.error('No workspace config found. Add a `workspace` section to helm.config.ts')
+      consola.info('Run `helm init` to generate a config file')
+      process.exit(1)
     }
 
-    consola.warn('Smart workspace not yet implemented — use Phase 4')
-    consola.info('For now, run your existing localnet scripts')
+    const stages = buildStages(config, {
+      quick: args.quick,
+      reset: args.reset,
+      only: args.only?.split(',').map(s => s.trim()),
+    })
+
+    if (stages.length === 0) {
+      consola.warn('No stages to run')
+      return
+    }
+
+    consola.box(`Helm Dev${args.quick ? ' (quick)' : ''}${args.reset ? ' (reset)' : ''}`)
+
+    // Handle graceful shutdown
+    const cleanup = async () => {
+      consola.info('\nShutting down...')
+      process.exit(0)
+    }
+    process.on('SIGINT', cleanup)
+    process.on('SIGTERM', cleanup)
+
+    try {
+      await runStages(stages)
+    } catch (err: any) {
+      consola.error(`Failed: ${err.message}`)
+      process.exit(1)
+    }
   },
 })

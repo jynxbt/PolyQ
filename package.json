@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./vite": "./src/vite/index.ts",
     "./nuxt": "./src/nuxt/index.ts",
-    "./codegen": "./src/codegen/index.ts"
+    "./codegen": "./src/codegen/index.ts",
+    "./workspace": "./src/workspace/index.ts"
   },
   "files": [
     "dist",

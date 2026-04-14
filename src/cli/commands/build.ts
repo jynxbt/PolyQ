@@ -1,5 +1,7 @@
 import { defineCommand } from 'citty'
 import consola from 'consola'
+import { loadConfig } from '../../config/loader'
+import { createProgramsBuildStage } from '../../workspace/stages/programs'
 
 export default defineCommand({
   meta: {
@@ -9,7 +11,7 @@ export default defineCommand({
   args: {
     features: {
       type: 'string',
-      description: 'Cargo features to enable (e.g., "local")',
+      description: 'Cargo features to enable (comma-separated, e.g., "local")',
     },
     parallel: {
       type: 'boolean',
@@ -18,9 +20,27 @@ export default defineCommand({
     },
   },
   async run({ args }) {
-    consola.info('Building Solana programs...')
+    const config = await loadConfig()
 
-    // TODO: Phase 4 — workspace orchestration
-    consola.warn('Smart build not yet implemented — use `anchor build` directly')
+    if (!config.programs || Object.keys(config.programs).length === 0) {
+      consola.error('No programs configured. Check helm.config.ts or Anchor.toml')
+      process.exit(1)
+    }
+
+    const features = args.features?.split(',').map(s => s.trim()) ?? []
+
+    const stage = createProgramsBuildStage({
+      programs: config.programs,
+      features,
+      parallel: args.parallel,
+      root: config.root,
+    })
+
+    try {
+      await stage.start()
+    } catch (err: any) {
+      consola.error(err.message)
+      process.exit(1)
+    }
   },
 })

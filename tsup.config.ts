@@ -7,6 +7,7 @@ export default defineConfig([
       'vite/index': 'src/vite/index.ts',
       'nuxt/index': 'src/nuxt/index.ts',
       'codegen/index': 'src/codegen/index.ts',
+      'workspace/index': 'src/workspace/index.ts',
       'cli/index': 'src/cli/index.ts',
     },
     format: ['esm'],

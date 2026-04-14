@@ -9,3 +9,4 @@ export type {
   ResolvedHelmConfig,
 } from './types'
 export { resolveConfig, detectProgramsFromAnchor } from './resolve'
+export { loadConfig } from './loader'
