@@ -1,6 +1,8 @@
 # Helm
 
-Vite for Solana. IDL sync, polyfills, codegen, and workspace orchestration.
+Vite for Solana. Framework-agnostic DX tooling — polyfills, IDL sync, codegen, and workspace orchestration.
+
+Works with **React, Next.js, Svelte, SvelteKit, Remix, Nuxt**, or any Vite/webpack project.
 
 ## Install
 
@@ -8,112 +10,175 @@ Vite for Solana. IDL sync, polyfills, codegen, and workspace orchestration.
 npm install solana-helm
 ```
 
-## Vite Plugin
+## Quick Start
+
+### React / Vite
 
 ```ts
 // vite.config.ts
 import { helmVite } from 'solana-helm/vite'
 
 export default defineConfig({
-  plugins: [helmVite()]
+  plugins: [helmVite()],
 })
 ```
 
-Zero-config. Detects Solana dependencies and auto-configures:
-- `global` → `globalThis`
-- `buffer` alias → npm `buffer` package
-- `optimizeDeps` for pre-bundling Anchor, web3.js, bn.js
-
-### With IDL Sync
+### Next.js
 
 ```ts
-plugins: [
-  helmVite({
-    idlSync: {
-      watchDir: 'target/idl',
-      mapping: {
-        my_program: ['packages/sdk/src/idl.json'],
-      },
-    },
-  })
-]
+// next.config.ts
+import { withHelm } from 'solana-helm/next'
+
+const nextConfig = { /* ... */ }
+export default withHelm(nextConfig)
 ```
 
-Run `anchor build` and your frontend picks up the new IDL via HMR. No manual copying, no page refresh.
+### SvelteKit
 
-## Nuxt Module
+```ts
+// vite.config.ts
+import { sveltekit } from '@sveltejs/kit/vite'
+import { helmSvelteKit } from 'solana-helm/sveltekit'
+
+export default defineConfig({
+  plugins: [sveltekit(), ...helmSvelteKit()],
+})
+```
+
+### Remix
+
+```ts
+// vite.config.ts
+import { vitePlugin as remix } from '@remix-run/dev'
+import { helmRemix } from 'solana-helm/remix'
+
+export default defineConfig({
+  plugins: [remix(), ...helmRemix()],
+})
+```
+
+### Nuxt
 
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
   modules: ['solana-helm/nuxt'],
   helm: {
+    polyfills: { buffer: true },
     idlSync: {
-      mapping: {
-        my_program: ['packages/sdk/src/idl.json'],
-      },
+      mapping: { my_program: ['packages/sdk/src/idl.json'] },
     },
   },
 })
 ```
 
-## CLI
+### Raw Webpack
 
-```bash
-# Generate TypeScript client from Anchor IDLs
-helm codegen
-helm codegen --idl target/idl/my_program.json --out generated/
-helm codegen --watch
+```ts
+// webpack.config.js
+import { helmWebpack } from 'solana-helm/webpack'
 
-# Initialize config
-helm init
+const applyHelm = helmWebpack()
 
-# Smart workspace (coming soon)
-helm dev
-helm stop
+export default applyHelm({
+  entry: './src/index.ts',
+  // ...
+})
 ```
 
-## Codegen
+## Features
 
-Generates from Anchor IDLs:
+### Automatic Polyfills
+
+Zero-config. Detects Solana dependencies and auto-configures:
+- `global` → `globalThis`
+- `buffer` alias → npm `buffer` package
+- `optimizeDeps` (Vite) / `resolve.fallback` + `ProvidePlugin` (webpack)
+
+SSR-aware — polyfills only apply to client builds.
+
+### IDL Sync + HMR
+
+Watch `target/idl/` and auto-sync to your frontend on every `anchor build`:
+
+```ts
+// Any Vite-based framework
+helmVite({
+  idlSync: {
+    watchDir: 'target/idl',
+    mapping: {
+      my_program: ['packages/sdk/src/idl.json'],
+    },
+  },
+})
+```
+
+No manual copying, no page refresh. The Vite dev server picks up IDL changes via HMR.
+
+### Codegen
+
+Generate TypeScript clients from Anchor IDLs:
+
+```bash
+helm codegen                          # All IDLs in target/idl/
+helm codegen --idl target/idl/my_program.json --out generated/
+helm codegen --watch                  # Watch + regenerate
+```
+
+Generates:
 - **Types** — TypeScript interfaces from IDL type definitions
 - **PDAs** — `deriveFoo()` functions from IDL seed definitions
-- **Instructions** — `createFooInstruction()` builders with typed accounts and args
+- **Instructions** — `createFooInstruction()` builders with typed accounts/args
 - **Accounts** — Discriminator constants and fetch stubs
 - **Errors** — Error enum and lookup function
 
-```ts
-import { generateFromIdl } from 'solana-helm/codegen'
+### Smart Workspace (CLI)
 
-generateFromIdl('target/idl/my_program.json', 'generated/')
+Stage-based dev environment orchestration with proper health check polling:
+
+```bash
+helm dev              # Docker → Validator → Build → Deploy → Init → DB → Dev Server
+helm dev --quick      # Skip program builds
+helm dev --reset      # Drop DB, clear ledger, full rebuild
+helm stop             # Stop services
+helm stop --all       # Also stop Docker
+helm status           # Show what's running
+helm build            # Build programs
+helm build --features local --parallel
 ```
 
-## Config
+Replaces hundreds of lines of shell scripts with a single config:
 
 ```ts
 // helm.config.ts
 import { defineHelmConfig } from 'solana-helm'
 
 export default defineHelmConfig({
-  programs: {
-    // Auto-detected from Anchor.toml
-    myNativeProgram: {
-      type: 'native',
-      path: 'programs/my-native-program',
-      idl: 'programs/my-native-program/idl.json',
+  workspace: {
+    buildFeatures: ['local'],
+    docker: { services: ['postgres'] },
+    validator: { rpcUrl: 'http://127.0.0.1:8899' },
+    init: { script: 'scripts/init.ts' },
+    database: {
+      url: 'postgresql://dev:dev@localhost:5433/myapp',
+      migrationsDir: 'migrations',
+      seed: { script: 'seed:dev' },
     },
-  },
-  idlSync: {
-    mapping: {
-      my_program: ['packages/sdk/src/idl.json'],
-    },
-  },
-  codegen: {
-    outDir: 'generated',
-    programs: ['myProgram'],
+    devServer: { command: 'bun run dev' },
   },
 })
 ```
+
+## Framework Support Matrix
+
+| Feature | Vite (React, Svelte, etc.) | Next.js | SvelteKit | Remix | Nuxt |
+|---|---|---|---|---|---|
+| Auto Polyfills | `helmVite()` | `withHelm()` | `helmSvelteKit()` | `helmRemix()` | module |
+| IDL Sync + HMR | yes | — | yes | yes | yes |
+| Codegen (CLI) | yes | yes | yes | yes | yes |
+| Smart Workspace | yes | yes | yes | yes | yes |
+
+IDL Sync requires Vite's dev server for HMR. Next.js projects get polyfills + codegen + workspace, but not hot IDL reload.
 
 ## License
 
