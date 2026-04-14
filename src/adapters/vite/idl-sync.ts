@@ -5,7 +5,7 @@ import consola from 'consola'
 import type { Plugin, ViteDevServer } from 'vite'
 import type { IdlSyncConfig } from '../../config/types'
 
-const logger = consola.withTag('helm:idl-sync')
+const logger = consola.withTag('polyq:idl-sync')
 
 /**
  * Vite plugin that watches Anchor IDL output and syncs to configured destinations.
@@ -15,14 +15,14 @@ const logger = consola.withTag('helm:idl-sync')
  * 2. Invalidates the Vite module graph for the destination files
  * 3. Triggers HMR so the frontend picks up new types without a page refresh
  */
-export function helmIdlSync(options?: IdlSyncConfig): Plugin {
+export function polyqIdlSync(options?: IdlSyncConfig): Plugin {
   const watchDir = options?.watchDir ?? 'target/idl'
   const mapping = options?.mapping ?? {}
   let server: ViteDevServer | undefined
   let watcher: ReturnType<typeof watch> | undefined
 
   return {
-    name: 'helm:idl-sync',
+    name: 'polyq:idl-sync',
 
     configResolved(config) {
       // Resolve watch directory relative to project root
@@ -55,9 +55,15 @@ export function helmIdlSync(options?: IdlSyncConfig): Plugin {
       })
 
       logger.info(`Watching ${resolvedWatchDir} for IDL changes`)
+
+      // Clean up watcher when dev server closes
+      devServer.httpServer?.on('close', () => {
+        watcher?.close()
+      })
     },
 
     closeBundle() {
+      // Also close during production builds (safety net)
       watcher?.close()
     },
   }
@@ -96,15 +102,20 @@ export function helmIdlSync(options?: IdlSyncConfig): Plugin {
             ?? server.moduleGraph.getModulesByFile(resolvedDest)?.values().next().value
           if (module) {
             server.moduleGraph.invalidateModule(module)
-            server.ws.send({
-              type: 'update',
-              updates: [{
-                type: 'js-update',
-                path: module.url,
-                acceptedPath: module.url,
-                timestamp: Date.now(),
-              }],
-            })
+            try {
+              // Vite 5/6 compatible — try granular update, fall back to full reload
+              server.ws.send({
+                type: 'update',
+                updates: [{
+                  type: 'js-update',
+                  path: module.url,
+                  acceptedPath: module.url,
+                  timestamp: Date.now(),
+                }],
+              })
+            } catch {
+              server.ws.send({ type: 'full-reload' })
+            }
             logger.success(`HMR update sent for ${dest}`)
           } else {
             // If the module isn't in the graph yet, do a full reload
