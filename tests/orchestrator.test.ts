@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { buildStages } from '../src/workspace/orchestrator'
-import type { ResolvedHelmConfig } from '../src/config/types'
+import type { ResolvedPolyqConfig } from '../src/config/types'
 
-function makeConfig(overrides?: Partial<ResolvedHelmConfig>): ResolvedHelmConfig {
+function makeConfig(overrides?: Partial<ResolvedPolyqConfig>): ResolvedPolyqConfig {
   return {
     root: '/tmp/test-project',
     _chain: 'svm' as const,

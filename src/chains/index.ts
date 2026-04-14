@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { resolve, dirname } from 'pathe'
+import consola from 'consola'
 import type { ChainFamily, ChainProvider } from './types'
 import { svmProvider } from './svm'
 import { evmProvider } from './evm'
@@ -33,10 +34,22 @@ export function getAllRootMarkers(): string[] {
  */
 export function detectChain(root: string): ChainFamily {
   // Check config file markers first (definite detection)
+  const definiteMatches: ChainFamily[] = []
   for (const provider of getAllProviders()) {
     const result = provider.detectProject(root)
-    if (result?.confidence === 'definite') return result.chain
+    if (result?.confidence === 'definite') {
+      definiteMatches.push(result.chain)
+    }
   }
+
+  if (definiteMatches.length > 1) {
+    consola.warn(
+      `Multiple chain configs detected (${definiteMatches.join(', ')}). ` +
+      `Using '${definiteMatches[0]}'. Set \`chain\` explicitly in polyq.config.ts to silence this warning.`,
+    )
+  }
+
+  if (definiteMatches.length > 0) return definiteMatches[0]
 
   // Check package.json dependencies (likely detection)
   for (const provider of getAllProviders()) {

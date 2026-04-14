@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { resolve } from 'pathe'
 import type { ChainProvider } from '../types'
 import { EVM_OPTIMIZE_DEPS, EVM_ROOT_MARKERS, detectEvmProject, detectEvmPackages } from './detect'
 import { detectEvmPrograms, findEvmSchemaFiles } from './config'
@@ -9,7 +11,13 @@ export const evmProvider: ChainProvider = {
   chain: 'evm',
   programTypes: ['hardhat', 'foundry'],
   rootMarkers: EVM_ROOT_MARKERS,
-  defaultArtifactDir: 'out',
+  // Foundry uses 'out/', Hardhat uses 'artifacts/' — check both, prefer what exists
+  get defaultArtifactDir() {
+    const cwd = process.cwd()
+    if (existsSync(resolve(cwd, 'foundry.toml'))) return 'out'
+    if (existsSync(resolve(cwd, 'artifacts'))) return 'artifacts'
+    return 'out'
+  },
   optimizeDeps: EVM_OPTIMIZE_DEPS,
 
   detectProject: detectEvmProject,

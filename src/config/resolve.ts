@@ -1,19 +1,28 @@
 import { resolve } from 'pathe'
-import type { HelmConfig, ResolvedHelmConfig } from './types'
+import type { PolyqConfig, ResolvedPolyqConfig } from './types'
 import { detectChain, findProjectRoot, getChainProvider } from '../chains'
 
 /**
- * Resolve a HelmConfig by auto-detecting chain, root, and programs.
+ * Resolve a PolyqConfig by auto-detecting chain, root, and programs.
  */
 export function resolveConfig(
-  config: HelmConfig,
+  config: PolyqConfig,
   cwd: string,
-): ResolvedHelmConfig {
+): ResolvedPolyqConfig {
   const root = config.root ? resolve(cwd, config.root) : findProjectRoot(cwd)
   const chain = config.chain ?? detectChain(root)
   const provider = getChainProvider(chain)
 
   const programs = config.programs ?? provider.detectPrograms(root)
+
+  // Migrate per-program idl → schema for backwards compat
+  if (programs) {
+    for (const prog of Object.values(programs)) {
+      if (!prog.schema && prog.idl) {
+        prog.schema = prog.idl
+      }
+    }
+  }
 
   // Merge idlSync into schemaSync for backwards compat
   const schemaSync = config.schemaSync ?? config.idlSync ?? {
@@ -23,6 +32,7 @@ export function resolveConfig(
   return {
     ...config,
     root,
+    resolvedChain: chain,
     _chain: chain,
     programs,
     schemaSync,
@@ -31,6 +41,6 @@ export function resolveConfig(
 }
 
 /**
- * @deprecated Use detectProgramsFromAnchor from 'solana-helm/chains/svm'
+ * @deprecated Use detectProgramsFromAnchor from 'polyq/chains/svm'
  */
 export { detectProgramsFromAnchor } from '../chains/svm/config'

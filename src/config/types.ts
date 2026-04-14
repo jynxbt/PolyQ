@@ -2,7 +2,7 @@ import type { ChainFamily, ProgramType } from '../chains/types'
 
 export type { ChainFamily, ProgramType }
 
-export interface HelmConfig {
+export interface PolyqConfig {
   /** Chain family — auto-detected if omitted */
   chain?: ChainFamily
 
@@ -24,7 +24,7 @@ export interface HelmConfig {
   /** Polyfill configuration */
   polyfills?: PolyfillConfig
 
-  /** Workspace orchestration (for `helm dev`) */
+  /** Workspace orchestration (for `polyq dev`) */
   workspace?: WorkspaceConfig
 }
 
@@ -102,6 +102,8 @@ export interface WorkspaceConfig {
     enabled?: boolean
     compose?: string
     services?: string[]
+    /** Port to health-check for readiness (default: 5432) */
+    healthCheckPort?: number
   }
 
   /** Local node/validator settings */
@@ -122,6 +124,8 @@ export interface WorkspaceConfig {
   /** Database configuration */
   database?: {
     url?: string
+    /** PostgreSQL extensions to enable (default: none) */
+    extensions?: string[]
     migrationsDir?: string
     seed?: {
       script: string
@@ -142,10 +146,23 @@ export interface WorkspaceConfig {
   }
 }
 
-export type ResolvedHelmConfig = Required<
-  Pick<HelmConfig, 'root'>
-> & HelmConfig & { _chain: ChainFamily }
+export type ResolvedPolyqConfig = Required<
+  Pick<PolyqConfig, 'root'>
+> & PolyqConfig & {
+  /** Resolved chain family. Always set by resolveConfig(). */
+  resolvedChain: ChainFamily
+  /** @deprecated Use resolvedChain */
+  _chain: ChainFamily
+}
 
-export function defineHelmConfig(config: HelmConfig): HelmConfig {
+export function definePolyqConfig(config: PolyqConfig): PolyqConfig {
   return config
 }
+
+// Backwards-compatible aliases
+/** @deprecated Use PolyqConfig */
+export type HelmConfig = PolyqConfig
+/** @deprecated Use ResolvedPolyqConfig */
+export type ResolvedHelmConfig = ResolvedPolyqConfig
+/** @deprecated Use definePolyqConfig */
+export const defineHelmConfig = definePolyqConfig

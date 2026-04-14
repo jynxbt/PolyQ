@@ -1,6 +1,6 @@
 import consola from 'consola'
 import type { Stage } from './stage'
-import type { ResolvedHelmConfig } from '../config/types'
+import type { ResolvedPolyqConfig } from '../config/types'
 import { createDockerStage } from './stages/docker'
 import { createValidatorStage, createValidatorResetStage } from './stages/validator'
 import { createProgramsBuildStage, createProgramsDeployStage } from './stages/programs'
@@ -8,7 +8,7 @@ import { createInitStage } from './stages/init'
 import { createDatabaseStage, createDatabaseResetStage } from './stages/database'
 import { createDevServerStage } from './stages/devserver'
 
-const logger = consola.withTag('helm')
+const logger = consola.withTag('polyq')
 
 export interface OrchestratorOptions {
   /** Skip program builds and deploy */
@@ -23,15 +23,15 @@ export interface OrchestratorOptions {
  * Build the ordered list of stages from config and options.
  */
 export function buildStages(
-  config: ResolvedHelmConfig,
+  config: ResolvedPolyqConfig,
   options: OrchestratorOptions = {},
 ): Stage[] {
   const ws = config.workspace
   if (!ws) {
-    throw new Error('No workspace config. Run `helm init` or add a workspace section to helm.config.ts')
+    throw new Error('No workspace config. Run `polyq init` or add a workspace section to polyq.config.ts')
   }
 
-  const chain = config._chain ?? 'svm'
+  const chain = config.resolvedChain ?? config._chain ?? 'svm'
   const stages: Stage[] = []
 
   // Stage 1: Docker
@@ -39,6 +39,7 @@ export function buildStages(
     stages.push(createDockerStage({
       compose: ws.docker?.compose,
       services: ws.docker?.services,
+      healthCheckPort: ws.docker?.healthCheckPort,
       root: config.root,
     }))
   }
@@ -94,11 +95,12 @@ export function buildStages(
 
   // Stage 6: Database
   if (ws.database) {
+    const dbExtensions = ws.database.extensions ?? []
     if (options.reset) {
       stages.push(createDatabaseResetStage({
         url: ws.database.url!,
         migrationsDir: ws.database.migrationsDir,
-        extensions: ['pgcrypto', 'timescaledb'],
+        extensions: dbExtensions,
         seed: ws.database.seed,
         root: config.root,
       }))
@@ -106,7 +108,7 @@ export function buildStages(
       stages.push(createDatabaseStage({
         url: ws.database.url!,
         migrationsDir: ws.database.migrationsDir,
-        extensions: ['pgcrypto', 'timescaledb'],
+        extensions: dbExtensions,
         seed: ws.database.seed,
         root: config.root,
       }))

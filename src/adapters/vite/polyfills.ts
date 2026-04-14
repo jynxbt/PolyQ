@@ -1,22 +1,24 @@
 import type { Plugin } from 'vite'
 import type { PolyfillConfig } from '../../config/types'
-import { detectSolanaPackages, resolvePolyfillNeeds, OPTIMIZE_DEPS } from '../../core/detect'
+import { detectChainPackages, detectSolanaPackages, resolvePolyfillNeeds, OPTIMIZE_DEPS } from '../../core/detect'
 
 /**
- * Vite plugin that auto-configures polyfills required for Solana libraries.
+ * Vite plugin that auto-configures polyfills required for blockchain libraries.
  *
  * Works with any Vite-based framework: React, Svelte, SvelteKit, Remix, Nuxt, etc.
  *
- * Detects Solana packages in your dependencies and sets up:
+ * Detects blockchain packages (SVM + EVM) in your dependencies and sets up:
  * - `global` → `globalThis` (Node global in browser)
  * - `buffer` alias → npm `buffer` package
- * - `optimizeDeps` for pre-bundling Solana deps
+ * - `optimizeDeps` for pre-bundling deps
  *
  * Respects SSR context — polyfills only apply to client builds.
+ * Note: EVM libs (ethers, viem) generally don't need Buffer/global polyfills,
+ * but detection still fires so the plugin can apply optimizeDeps.
  */
-export function helmPolyfills(options?: PolyfillConfig): Plugin {
+export function polyqPolyfills(options?: PolyfillConfig): Plugin {
   return {
-    name: 'helm:polyfills',
+    name: 'polyq:polyfills',
     enforce: 'pre',
 
     config(userConfig, env) {
@@ -24,7 +26,7 @@ export function helmPolyfills(options?: PolyfillConfig): Plugin {
       const mode = options?.mode ?? 'auto'
 
       if (mode === 'auto') {
-        const detected = detectSolanaPackages(root)
+        const detected = detectChainPackages(root)
         if (detected.length === 0) return
       }
 
@@ -33,6 +35,7 @@ export function helmPolyfills(options?: PolyfillConfig): Plugin {
       const isSSR = env.isSsrBuild ?? false
       if (isSSR) return
 
+      // Polyfill needs are based on SVM packages (EVM libs don't need Buffer/global)
       const needs = resolvePolyfillNeeds(
         mode === 'auto' ? detectSolanaPackages(root) : [],
         {

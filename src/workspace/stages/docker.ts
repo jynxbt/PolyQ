@@ -3,13 +3,15 @@ import type { Stage } from '../stage'
 import { runSync, run } from '../process'
 import { waitUntilReady, portCheck } from '../health'
 
-const logger = consola.withTag('helm:docker')
+const logger = consola.withTag('polyq:docker')
 
 export interface DockerStageOptions {
   /** Path to docker-compose.yml (relative to root) */
   compose?: string
   /** Specific services to start (default: all) */
   services?: string[]
+  /** Port to health-check for readiness (default: 5432) */
+  healthCheckPort?: number
   /** Project root */
   root: string
 }
@@ -59,10 +61,11 @@ export function createDockerStage(options: DockerStageOptions): Stage {
         throw new Error(`docker compose up failed (exit ${result.exitCode})`)
       }
 
-      // Wait for postgres to accept connections on port 5433
+      // Wait for database to accept connections
+      const dbPort = options.healthCheckPort ?? 5432
       await waitUntilReady(
-        () => portCheck('127.0.0.1', 5433),
-        { label: 'PostgreSQL', interval: 500, timeout: 15_000 },
+        () => portCheck('127.0.0.1', dbPort),
+        { label: 'Database', interval: 500, timeout: 15_000 },
       )
     },
 
