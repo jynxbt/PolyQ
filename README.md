@@ -4,6 +4,17 @@ DX toolkit for Solana and EVM. Framework-agnostic DX tooling — polyfills, IDL 
 
 Works with **React, Next.js, Svelte, SvelteKit, Remix, Nuxt**, or any Vite/webpack project.
 
+## Why?
+
+Every blockchain frontend project wastes time on the same problems:
+
+- You run `anchor build`, forget to copy the IDL, and spend 20 minutes debugging stale types
+- You paste the same `global: 'globalThis'` and `buffer: 'buffer/'` polyfill config into every new project
+- You hand-write hundreds of lines of instruction builders, PDA helpers, and account fetchers — then rewrite them every time the contract changes
+- Your localnet script is 600 lines of `sleep 2` commands and sequential builds that break when anyone touches it
+
+Polyq fixes all of this with one install. It detects your chain, configures your bundler, generates typed clients, syncs schemas on save, and orchestrates your dev environment — so you ship features instead of fighting tooling.
+
 ## Install
 
 ```bash
@@ -84,6 +95,29 @@ export default applyHelm({
   entry: './src/index.ts',
   // ...
 })
+```
+
+## As a CLI
+
+```bash
+# Generate typed TypeScript clients from contract schemas
+polyq codegen                            # auto-detect chain, generate from all IDLs/ABIs
+polyq codegen --idl target/idl/my_program.json --out src/generated
+polyq codegen --watch                    # watch source files, auto-build, regenerate
+
+# Initialize config with auto-detected settings
+polyq init
+
+# Orchestrate your local dev environment
+polyq dev                                # Docker → Validator → Build → Deploy → DB → Dev Server
+polyq dev --quick                        # skip program builds
+polyq dev --reset                        # drop DB, clear ledger, full rebuild
+polyq stop                               # stop all services
+polyq status                             # show what's running
+
+# Build programs/contracts
+polyq build
+polyq build --features local --parallel
 ```
 
 ## Features
@@ -179,6 +213,27 @@ export default defineHelmConfig({
 | Smart Workspace | yes | yes | yes | yes | yes |
 
 IDL Sync requires Vite's dev server for HMR. Next.js projects get polyfills + codegen + workspace, but not hot IDL reload.
+
+## Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `chain` | `'svm' \| 'evm'` | auto-detected | Force chain family |
+| `programs` | `Record<string, ProgramConfig>` | auto-detected | Program/contract definitions |
+| `schemaSync.watchDir` | `string` | auto-detected | Directory to watch for IDL/ABI changes |
+| `schemaSync.mapping` | `Record<string, string[]>` | `{}` | Map schema name to destination paths |
+| `codegen.outDir` | `string` | `'generated'` | Output directory for generated TypeScript |
+| `codegen.features` | `object` | all enabled | Toggle types, instructions, accounts, pda, errors, events |
+| `polyfills.mode` | `'auto' \| 'manual'` | `'auto'` | Auto-detect from package.json or use explicit flags |
+| `polyfills.buffer` | `boolean` | `true` | Alias `buffer` to npm `buffer/` package |
+| `polyfills.global` | `boolean` | `true` | Define `global` as `globalThis` |
+| `workspace.validator.tool` | `string` | auto-detected | `'solana-test-validator'`, `'anvil'`, or `'hardhat'` |
+| `workspace.validator.rpcUrl` | `string` | auto-detected | RPC endpoint for local node |
+| `workspace.docker.services` | `string[]` | all | Docker Compose services to start |
+| `workspace.docker.healthCheckPort` | `number` | `5432` | Port to poll for readiness |
+| `workspace.database.extensions` | `string[]` | `[]` | PostgreSQL extensions to enable |
+| `workspace.database.migrationsDir` | `string` | — | Path to SQL migration files |
+| `workspace.devServer.command` | `string` | — | Command to start your dev server |
 
 ## License
 
