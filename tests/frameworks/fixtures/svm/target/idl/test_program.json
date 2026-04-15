@@ -1,0 +1,74 @@
+{
+  "address": "11111111111111111111111111111111",
+  "metadata": { "name": "test_program", "version": "0.1.0", "spec": "0.1.0" },
+  "instructions": [
+    {
+      "name": "initialize",
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "accounts": [
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "config", "writable": true, "pda": { "seeds": [{ "kind": "const", "value": [99, 111, 110, 102, 105, 103] }] } },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "max_supply", "type": "u64" },
+        { "name": "name", "type": "string" }
+      ]
+    },
+    {
+      "name": "transfer",
+      "discriminator": [163, 52, 200, 231, 140, 3, 69, 186],
+      "accounts": [
+        { "name": "from", "writable": true, "signer": true },
+        { "name": "to", "writable": true },
+        { "name": "config", "writable": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" },
+        { "name": "params", "type": { "defined": { "name": "TransferParams" } } }
+      ]
+    }
+  ],
+  "accounts": [
+    { "name": "GlobalConfig", "discriminator": [149, 8, 156, 202, 160, 252, 176, 217] }
+  ],
+  "types": [
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "pubkey" },
+          { "name": "max_supply", "type": "u64" },
+          { "name": "name", "type": "string" },
+          { "name": "is_active", "type": "bool" }
+        ]
+      }
+    },
+    {
+      "name": "TransferParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "memo", "type": "string" },
+          { "name": "fee_bps", "type": "u16" }
+        ]
+      }
+    },
+    {
+      "name": "Status",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Active" },
+          { "name": "Paused" },
+          { "name": "Closed" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "Unauthorized", "msg": "Not authorized" },
+    { "code": 6001, "name": "InvalidSupply", "msg": "Invalid supply amount" }
+  ]
+}

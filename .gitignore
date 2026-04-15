@@ -9,3 +9,4 @@ tests/.chain-fixtures/
 tests/.config-fixtures/
 tests/.idl-sync-fixtures/
 tests/.webpack-fixtures/
+tests/frameworks/.framework-codegen-output/
