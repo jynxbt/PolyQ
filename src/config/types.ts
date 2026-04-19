@@ -15,9 +15,6 @@ export interface PolyqConfig {
   /** Schema/artifact sync configuration */
   schemaSync?: SchemaSyncConfig
 
-  /** @deprecated Use schemaSync */
-  idlSync?: SchemaSyncConfig
-
   /** Codegen configuration */
   codegen?: CodegenConfig
 
@@ -38,9 +35,6 @@ export interface ProgramConfig {
   /** Path to the schema file (IDL for SVM, ABI for EVM) */
   schema?: string
 
-  /** @deprecated Use schema */
-  idl?: string
-
   /** Program/contract identifiers per network */
   programId?: Record<string, string>
 
@@ -60,12 +54,29 @@ export interface SchemaSyncConfig {
   mapping?: Record<string, string[]>
 }
 
-/** @deprecated Use SchemaSyncConfig */
-export type IdlSyncConfig = SchemaSyncConfig
-
 export interface CodegenConfig {
   /** Output directory for generated TypeScript */
   outDir: string
+
+  /**
+   * Codegen output flavor.
+   *
+   * - `'legacy'` (default) emits hand-rolled helpers against `@coral-xyz/borsh` +
+   *   `@solana/web3.js` v1 for SVM and bare ABI constants for EVM.
+   * - `'kit'` (SVM only) delegates to Codama to emit `@solana/kit`-flavored clients.
+   *   Requires `codama`, `@codama/nodes-from-anchor`, and `@codama/renderers-js`
+   *   to be installed as peer deps.
+   * - `'viem'` (EVM only) emits `as const`-asserted ABIs wrapped for `viem`'s
+   *   `getContract`. Requires `viem` as a peer dep in consumer projects.
+   */
+  mode?: 'legacy' | 'kit' | 'viem'
+
+  /**
+   * SPDX license identifier to write at the top of every generated file.
+   * Default: `'MIT'`. Set to any SPDX string (e.g. `'Apache-2.0'`,
+   * `'UNLICENSED'`) or `false` to omit the header entirely.
+   */
+  license?: string | false
 
   /** Which programs to generate clients for */
   programs?: string[]
@@ -108,11 +119,33 @@ export interface WorkspaceConfig {
 
   /** Local node/validator settings */
   validator?: {
-    /** Tool to use (auto-detected from chain: 'solana-test-validator', 'anvil', 'hardhat') */
+    /**
+     * Built-in tool name. SVM: `solana-test-validator`. EVM: `anvil`, `hardhat`, `ganache`.
+     * For anything else, leave this as any string and set `command` to the executable.
+     */
     tool?: string
+    /** RPC URL. The port is parsed and used for cleanup / health checks. */
     rpcUrl?: string
+    /** Extra CLI flags passed to the validator binary */
     flags?: string[]
+    /** Log file for the detached validator process */
     logFile?: string
+    /**
+     * Override the executable command (EVM only, for custom tools).
+     * If omitted, falls back to the built-in map for known `tool` values.
+     */
+    command?: string
+    /**
+     * Process name used by `isProcessRunning` / `killByPattern`. Defaults to `tool`.
+     * Set this when `command` is an indirect runner (e.g. `npx`, `bun`) so cleanup
+     * targets the real process.
+     */
+    processName?: string
+    /**
+     * Ports to kill before start and after stop. When omitted, defaults are
+     * derived from `rpcUrl` and the chain family.
+     */
+    ports?: number[]
   }
 
   /** Post-deploy initialization script */
@@ -140,29 +173,28 @@ export interface WorkspaceConfig {
   }
 
   /** Health check tuning */
-  healthChecks?: {
-    pollInterval?: number
-    maxWait?: number
-  }
+  healthChecks?: HealthCheckTuning
 }
 
-export type ResolvedPolyqConfig = Required<
-  Pick<PolyqConfig, 'root'>
-> & PolyqConfig & {
-  /** Resolved chain family. Always set by resolveConfig(). */
-  resolvedChain: ChainFamily
-  /** @deprecated Use resolvedChain */
-  _chain: ChainFamily
+/**
+ * Tune how polyq polls stages for readiness.
+ * All fields are optional and fall back to per-stage defaults.
+ */
+export interface HealthCheckTuning {
+  /** ms between polls (default: 1000) */
+  pollInterval?: number
+  /** ms before a stage times out (default: 30000) */
+  maxWait?: number
+  /** ms per individual HTTP/TCP probe (default: 2000) */
+  requestTimeout?: number
 }
+
+export type ResolvedPolyqConfig = Required<Pick<PolyqConfig, 'root'>> &
+  PolyqConfig & {
+    /** Resolved chain family. Always set by resolveConfig(). */
+    resolvedChain: ChainFamily
+  }
 
 export function definePolyqConfig(config: PolyqConfig): PolyqConfig {
   return config
 }
-
-// Backwards-compatible aliases
-/** @deprecated Use PolyqConfig */
-export type HelmConfig = PolyqConfig
-/** @deprecated Use ResolvedPolyqConfig */
-export type ResolvedHelmConfig = ResolvedPolyqConfig
-/** @deprecated Use definePolyqConfig */
-export const defineHelmConfig = definePolyqConfig

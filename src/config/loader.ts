@@ -1,14 +1,11 @@
 import { existsSync } from 'node:fs'
-import { resolve } from 'pathe'
 import consola from 'consola'
-import type { PolyqConfig, ResolvedPolyqConfig } from './types'
+import { resolve } from 'pathe'
 import { resolveConfig } from './resolve'
+import { validateConfig } from './schema'
+import type { PolyqConfig, ResolvedPolyqConfig } from './types'
 
-const CONFIG_FILES = [
-  'polyq.config.ts',
-  'polyq.config.js',
-  'polyq.config.mjs',
-]
+const CONFIG_FILES = ['polyq.config.ts', 'polyq.config.js', 'polyq.config.mjs']
 
 const logger = consola.withTag('polyq:config')
 
@@ -30,8 +27,9 @@ export async function loadConfig(cwd?: string): Promise<ResolvedPolyqConfig> {
         interopDefault: true,
       })
 
-      const loaded = await jiti.import(configPath) as PolyqConfig | { default: PolyqConfig }
+      const loaded = (await jiti.import(configPath)) as PolyqConfig | { default: PolyqConfig }
       const config = 'default' in loaded ? loaded.default : loaded
+      validateConfig(config, file)
       return resolveConfig(config, root)
     }
   }

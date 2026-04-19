@@ -1,15 +1,20 @@
-export { definePolyqConfig } from './types'
+export { loadConfig } from './loader'
+export {
+  type MigrationChange,
+  type MigrationEntry,
+  migrateConfig,
+  warnDeprecations,
+} from './migrations'
+export { resolveConfig } from './resolve'
 export type {
-  PolyqConfig,
-  ProgramConfig,
-  SchemaSyncConfig,
-  IdlSyncConfig,
+  ChainFamily,
   CodegenConfig,
   PolyfillConfig,
-  WorkspaceConfig,
-  ResolvedPolyqConfig,
-  ChainFamily,
+  PolyqConfig,
+  ProgramConfig,
   ProgramType,
+  ResolvedPolyqConfig,
+  SchemaSyncConfig,
+  WorkspaceConfig,
 } from './types'
-export { resolveConfig, detectProgramsFromAnchor } from './resolve'
-export { loadConfig } from './loader'
+export { definePolyqConfig } from './types'
